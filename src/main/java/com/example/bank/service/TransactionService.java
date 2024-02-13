@@ -26,6 +26,8 @@ public class TransactionService {
     public Optional<Transaction> readOne(Long id){
         return transactionRepository.findById(id);
     }
+
+    public  List<Transaction> readOneUserTransactions(Long id){ return transactionRepository.findByWalletId(id); }
     public List<Transaction> readAll(){
         return transactionRepository.findAll();
     }
