@@ -44,13 +44,19 @@ public class WalletService {
     }
 
     public void topup(Long id, BigDecimal amount){
+        Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
         Optional<Wallet> walletoptional = walletRepository.findById(id);
-        if (walletoptional.isPresent()){
+        if (walletoptional.isPresent() && globalWallet.isPresent()){
             Wallet wallet = walletoptional.get();
             if (amount.compareTo(charges(amount)) > 0){
                 BigDecimal balance = wallet.getAmount().add(amount.subtract(charges(amount)));
                 wallet.setAmount(balance);
                 walletRepository.save(wallet);
+
+                Wallet wallet1 = globalWallet.get();
+                BigDecimal balance1 = wallet1.getAmount().add(charges(amount));
+                wallet1.setAmount(balance1);
+                walletRepository.save(wallet1);
 
                 Transaction transaction = new Transaction();
                 transaction.setAmount(amount);
@@ -62,14 +68,20 @@ public class WalletService {
     }
 
     public void withdraw(Long id, BigDecimal amount){
+        Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
         Optional<Wallet> walletoptional = walletRepository.findById(id);
-        if (walletoptional.isPresent()){
+        if (walletoptional.isPresent() && globalWallet.isPresent()){
             Wallet wallet = walletoptional.get();
             // BigDecimal balance = wallet.getAmount();
             if(amount.compareTo(BigDecimal.ZERO) >0 && wallet.getAmount().compareTo(amount.add(charges(amount))) >= 0 ){
                 BigDecimal balance = wallet.getAmount().subtract(amount.add(charges(amount)));
                 wallet.setAmount(balance);
                 walletRepository.save(wallet);
+
+                Wallet wallet1 = globalWallet.get();
+                BigDecimal balance1 = wallet1.getAmount().add(charges(amount));
+                wallet1.setAmount(balance1);
+                walletRepository.save(wallet1);
 
                 Transaction transaction = new Transaction();
                 transaction.setAmount(amount);
@@ -82,9 +94,10 @@ public class WalletService {
     }
 
     public void transfer(Long id, BigDecimal amount, String accountNumber){
+        Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
         Optional<Wallet> senderWallet = walletRepository.findById(id);
         Optional<Wallet> receiverWallet = walletRepository.findByAccountNumber(accountNumber);
-        if (senderWallet.isPresent() && receiverWallet.isPresent()){
+        if (globalWallet.isPresent() && senderWallet.isPresent() && receiverWallet.isPresent()){
             Wallet sendWallet = senderWallet.get();
             Wallet receiveWallet = receiverWallet.get();
 
@@ -95,6 +108,11 @@ public class WalletService {
             BigDecimal receiverBalance = receiveWallet.getAmount().add(amount.subtract(charges(amount)));
             receiveWallet.setAmount(receiverBalance);
             walletRepository.save(receiveWallet);
+
+            Wallet wallet1 = globalWallet.get();
+            BigDecimal balance1 = wallet1.getAmount().add(charges(amount));
+            wallet1.setAmount(balance1);
+            walletRepository.save(wallet1);
 
             Transaction sendTransaction = new Transaction();
             sendTransaction.setAmount(amount);
