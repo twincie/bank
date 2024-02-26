@@ -1,5 +1,6 @@
 package com.example.bank.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,7 +12,7 @@ import java.util.List;
 import java.util.Random;
 
 @Entity
-@AllArgsConstructor
+//@AllArgsConstructor
 @NoArgsConstructor
 @Setter
 @Getter
@@ -23,8 +24,12 @@ public class Wallet {
     private String accountNumber = accountNumberGenerator().toString();
     private BigDecimal amount = BigDecimal.ZERO;
 
-//    @OneToMany(mappedBy = "wallet")
-//    private List<Transaction> transactions;
+    @JsonIgnore
+    @OneToOne(mappedBy = "wallet")
+    private Users user;
+
+    @OneToMany(mappedBy = "wallet")
+    private List<Transaction> transactions;
 
     public Long accountNumberGenerator(){
         Random random = new Random();

@@ -5,8 +5,13 @@ import com.example.bank.entity.TransactionType;
 import com.example.bank.entity.Wallet;
 import com.example.bank.repository.TransactionRepository;
 import com.example.bank.repository.WalletRepository;
+import org.hibernate.type.TrueFalseConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,31 +26,38 @@ public class WalletService {
     @Autowired
     private TransactionRepository transactionRepository;
 
-
+    //=================================== CRUD START =================================
     public Wallet create(Wallet wallet){
         return walletRepository.save(wallet);
     }
-    public Optional<Wallet> readOne(Long id){
-        return walletRepository.findById(id);
+    public ResponseEntity<Wallet> readOne(Long waalletId){
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        Wallet wallet = walletRepository.findById(waalletId).orElseThrow(null);
+        String username = wallet.getUser().getUsername();
+        if (currentUser.equals(username)) {
+            return new ResponseEntity<>(wallet, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
     }
 //    public Optional<Wallet> readOne(String accountNumber){
 //        return Optional.ofNullable(walletRepository.findByAccountNumber(accountNumber));
-
 //    }
     public List<Wallet> readAll(){
         return walletRepository.findAll();
     }
-    public Wallet update(Long id, Wallet updater){
-        updater.setId(id);
+    public Wallet update(Long walletId, Wallet updater){
+        updater.setId(walletId);
         return walletRepository.save(updater);
     }
-    public void delete(Long id){
-        walletRepository.deleteById(id);
+    public void delete(Long walletId){
+        walletRepository.deleteById(walletId);
     }
 
-    public void topup(Long id, BigDecimal amount){
+    //=================================== CRUD END =================================
+
+    public void topup(Long walletId, BigDecimal amount){
         Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
-        Optional<Wallet> walletoptional = walletRepository.findById(id);
+        Optional<Wallet> walletoptional = walletRepository.findById(walletId);
         if (walletoptional.isPresent() && globalWallet.isPresent()){
             Wallet wallet = walletoptional.get();
             if (amount.compareTo(charges(amount)) > 0){
@@ -67,9 +79,9 @@ public class WalletService {
         }
     }
 
-    public void withdraw(Long id, BigDecimal amount){
+    public void withdraw(Long walletId, BigDecimal amount){
         Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
-        Optional<Wallet> walletoptional = walletRepository.findById(id);
+        Optional<Wallet> walletoptional = walletRepository.findById(walletId);
         if (walletoptional.isPresent() && globalWallet.isPresent()){
             Wallet wallet = walletoptional.get();
             // BigDecimal balance = wallet.getAmount();
@@ -93,39 +105,54 @@ public class WalletService {
         }
     }
 
-    public void transfer(Long id, BigDecimal amount, String accountNumber){
+    public boolean transfer(Long walletId, BigDecimal amount, String accountNumber){
         Optional<Wallet> globalWallet = walletRepository.findByAccountNumber("1000000000");
-        Optional<Wallet> senderWallet = walletRepository.findById(id);
+        Optional<Wallet> senderWallet = walletRepository.findById(walletId);
         Optional<Wallet> receiverWallet = walletRepository.findByAccountNumber(accountNumber);
-        if (globalWallet.isPresent() && senderWallet.isPresent() && receiverWallet.isPresent()){
+        if (globalWallet.isPresent() && senderWallet.isPresent() && receiverWallet.isPresent()) {
             Wallet sendWallet = senderWallet.get();
             Wallet receiveWallet = receiverWallet.get();
-
-            BigDecimal senderBalance = sendWallet.getAmount().subtract(amount.add(charges((amount))));
-            sendWallet.setAmount(senderBalance);
-            walletRepository.save(sendWallet);
-
-            BigDecimal receiverBalance = receiveWallet.getAmount().add(amount.subtract(charges(amount)));
-            receiveWallet.setAmount(receiverBalance);
-            walletRepository.save(receiveWallet);
-
             Wallet wallet1 = globalWallet.get();
-            BigDecimal balance1 = wallet1.getAmount().add(charges(amount));
-            wallet1.setAmount(balance1);
-            walletRepository.save(wallet1);
+            BigDecimal balance1 = wallet1.getAmount();
+            String senderAccount = senderWallet.get().getAccountNumber();
+            String receiverAccount = receiverWallet.get().getAccountNumber();
+            System.out.println("sender: " + senderAccount);
+            System.out.println("receiver: " + receiverAccount);
+            if (!senderAccount.equals(receiverAccount)) {
+                if (amount.compareTo(charges(amount)) > 0 && sendWallet.getAmount().compareTo(amount.add(charges(amount))) >= 0) {
+                    BigDecimal senderBalance = sendWallet.getAmount().subtract(amount.add(charges((amount))));
+                    sendWallet.setAmount(senderBalance);
+                    balance1 = balance1.add(charges(amount));
+                    walletRepository.save(sendWallet);
+                }
+                if (amount.compareTo(charges(amount)) > 0) {
+                    BigDecimal receiverBalance = receiveWallet.getAmount().add(amount.subtract(charges(amount)));
+                    receiveWallet.setAmount(receiverBalance);
+                    balance1 = balance1.add(charges(amount));
+                    walletRepository.save(receiveWallet);
+                }
 
-            Transaction sendTransaction = new Transaction();
-            sendTransaction.setAmount(amount);
-            sendTransaction.setType(TransactionType.TRANSFER);
-            sendTransaction.setWallet(sendWallet);
-            transactionRepository.save(sendTransaction);
+                //globalbank charges
+                wallet1.setAmount(balance1);
+                walletRepository.save(wallet1);
 
-            Transaction receiveTransaction = new Transaction();
-            receiveTransaction.setAmount(amount);
-            receiveTransaction.setType(TransactionType.TOPUP);
-            receiveTransaction.setWallet(sendWallet);
-            transactionRepository.save(receiveTransaction);
+                Transaction sendTransaction = new Transaction();
+                sendTransaction.setAmount(amount);
+                sendTransaction.setType(TransactionType.TRANSFER);
+                sendTransaction.setWallet(sendWallet);
+                transactionRepository.save(sendTransaction);
+
+                Transaction receiveTransaction = new Transaction();
+                receiveTransaction.setAmount(amount);
+                receiveTransaction.setType(TransactionType.TOPUP);
+                receiveTransaction.setWallet(sendWallet);
+                transactionRepository.save(receiveTransaction);
+                return true;
+            }
+            return false;
         }
+
+        return false;
     }
     public BigDecimal charges(BigDecimal amount){
         if (amount.compareTo(BigDecimal.valueOf(5000)) <= 0){

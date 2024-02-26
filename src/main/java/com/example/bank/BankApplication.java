@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @SpringBootApplication
 public class BankApplication implements CommandLineRunner {
@@ -32,7 +33,6 @@ public class BankApplication implements CommandLineRunner {
 			Wallet wallet = new Wallet();
 			wallet.setAccountNumber("1000000000");
 			wallet.setAmount(BigDecimal.ZERO);
-
 			Users users = new Users();
 
 			users.setUsername("globalbank");

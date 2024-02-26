@@ -3,13 +3,13 @@ package com.example.bank.controllers;
 import com.example.bank.entity.Wallet;
 import com.example.bank.service.WalletService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/wallet")
@@ -21,37 +21,39 @@ public class WalletController {
     public Wallet createWallet(@RequestBody Wallet wallet){
         return walletService.create(wallet);
     }
-    @GetMapping("/{id}")
-    public Optional<Wallet> readOneWallet(@PathVariable Long id){
-        return walletService.readOne(id);
+    @GetMapping("/{walletId}")
+    public ResponseEntity<Wallet> readOneWallet(@PathVariable Long walletId){
+        return walletService.readOne(walletId);
     }
     @GetMapping
     public List<Wallet> readAllWallets(){
         return walletService.readAll();
     }
-    @PutMapping("/{id}")
-    public Wallet updateWallet(@PathVariable Long id, @RequestBody Wallet wallet){
-        return walletService.update(id, wallet);
+    @PutMapping("/{walletId}")
+    public Wallet updateWallet(@PathVariable Long walletId, @RequestBody Wallet wallet){
+        return walletService.update(walletId, wallet);
     }
-    @DeleteMapping("/{id}")
-    public void deleteWallet(@PathVariable Long id){
-        walletService.delete(id);
+    @DeleteMapping("/{walletId}")
+    public void deleteWallet(@PathVariable Long walletId){
+        walletService.delete(walletId);
     }
 
-    @PutMapping("/{id}/topup")
-    public void topUpWallet(@PathVariable Long id, @RequestBody Map<String, BigDecimal> request){
+    @PutMapping("/{walletId}/topup")
+    public ResponseEntity<String> topUpWallet(@PathVariable Long walletId, @RequestBody Map<String, BigDecimal> request){
         BigDecimal amount = request.get("amount");
-        walletService.topup(id, amount);
+        walletService.topup(walletId, amount);
+        return new ResponseEntity<>("Topup Successful", HttpStatus.OK);
     }
 
-    @PutMapping("/{id}/withdraw")
-    public void withdrawWallet(@PathVariable Long id, @RequestBody Map<String, BigDecimal> request){
+    @PutMapping("/{walletId}/withdraw")
+    public ResponseEntity<String> withdrawWallet(@PathVariable Long walletId, @RequestBody Map<String, BigDecimal> request){
         BigDecimal amount = request.get("amount");
-        walletService.withdraw(id, amount);
+        walletService.withdraw(walletId, amount);
+        return new ResponseEntity<>("Withdraw Successful",HttpStatus.OK);
     }
 
-    @PutMapping("/{id}/transfer")
-    public void transferWallet(@PathVariable Long id, @RequestBody Map<String, Object> request){
+    @PutMapping("/{walletId}/transfer")
+    public ResponseEntity<String> transferWallet(@PathVariable Long walletId, @RequestBody Map<String, Object> request){
         Object amountObj = request.get("amount");
         Object receiverAccountNumberObj = request.get("accountNumber");
         BigDecimal amount = new BigDecimal(amountObj.toString());
@@ -59,7 +61,11 @@ public class WalletController {
 
 //        System.out.println(amountObj);
 //        System.out.println(receiverAccountNumberObj);
-        walletService.transfer(id, amount, receiverAccountNumber);
+        boolean isTransfer = walletService.transfer(walletId, amount, receiverAccountNumber);
+        if (isTransfer){
+            return new ResponseEntity<>("Transfer Successful", HttpStatus.OK);
+        }
+        return new ResponseEntity<>("Transfer not successful", HttpStatus.FORBIDDEN);
     }
 
 }
